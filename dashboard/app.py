@@ -1,0 +1,91 @@
+# -*- coding: utf-8 -*-
+
+import dash
+import dash_bootstrap_components as dbc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+from components import summary, navbar, create_figure, graphic, interval_component
+import sources
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SLATE])
+app.title = 'Apache Dashboard'
+
+PLOT_CONFIG = [{
+    'title': 'Error codes count',
+    'label': 'Error code',
+    'kind':  'bar',
+    'source': sources.http_status_codes
+}, {
+    'title': 'Requested URLs',
+    'label': 'URL',
+    'kind':  'bar',
+    'source': sources.requested_urls
+}, {
+    'title': 'Visitors',
+    'label': 'Visitors count',
+    'kind':  'line',
+    'source': sources.visitors
+}, {
+    'title': 'Visitors',
+    'label': 'Visitors count',
+    'kind':  'line',
+    'source': sources.visitors
+}]
+
+
+def create_figure_from_config(config, time_window=None):
+    x, y = config['source'](time_window)
+    fig = create_figure(config['kind'], x, y, config['label'], config['title'])
+    return fig
+
+
+def create_graphics():
+    graphics = [
+        graphic('g' + str(i), create_figure_from_config(config))
+        for i, config in enumerate(PLOT_CONFIG)
+    ]
+    return graphics
+
+
+def create_summary_layout():
+    labels, values = sources.get_summary()
+    return [
+        dbc.Row([dbc.Col(summary(labels, values))],
+                style={'margin-top': '40px'})
+    ]
+
+
+def create_graphics_layout(graphics):
+    layout = [
+        dbc.Row([dbc.Col(g1, md=6), dbc.Col(g2, md=6)],
+                style={'margin-top': '40px'})
+        for g1, g2 in zip(graphics[0::2], graphics[1::2])
+    ]
+    return layout
+
+
+def serve_layout():
+    body_header = create_summary_layout()
+    graphics = create_graphics()
+    body_main = create_graphics_layout(graphics)
+    int_component = interval_component(2)
+    body = dbc.Container(body_header + body_main + [int_component])
+    return html.Div([navbar('Dashboard'), body])
+
+
+def create_updating_function(config):
+    def update(_, time_window):
+        return create_figure_from_config(config, time_window)
+    return update
+
+
+app.layout = serve_layout
+
+for i, conf in enumerate(PLOT_CONFIG):
+    output = Output('g' + str(i), 'figure')
+    timer = Input('interval-component', 'n_intervals')
+    dropdown = Input('g' + str(i) + '-dropdown', 'value')
+    app.callback(output, [timer, dropdown])(create_updating_function(conf))
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
