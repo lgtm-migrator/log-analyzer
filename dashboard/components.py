@@ -93,11 +93,13 @@ def create_figure(kind, x, y, label, title):
 
 
 def summary_card(title, value, border_color):
-    style = {'border-top': '4px solid ' + border_color }
-    header = dbc.CardHeader(title, style=style)
-    body = dbc.CardBody([
-        dbc.CardTitle(str(value), className='text-center', style=CARD_STYLE)
-    ])
+    style = {'border-top': '4px solid ' + border_color}
+    header = dbc.CardHeader([
+        html.I(className='fas fa-chart-bar icon-2x'),
+        " " + title
+    ], style=style)
+    body = dbc.CardBody(
+        [dbc.CardTitle(str(value), className='text-center', style=CARD_STYLE)])
     return dbc.Card([header, body], color='secondary', inverse=True)
 
 
@@ -108,13 +110,16 @@ def summary(labels, values):
 
 
 def navbar(title):
-    return dbc.NavbarSimple(
-        children=[],
-        brand=title,
-        brand_href="#",
-        sticky="top",
-        color='primary',
-        dark=True)
+    navbrand = dbc.NavbarBrand([
+        dbc.Row([
+            dbc.Col(html.Div(title)),
+            dbc.Col(html.I(className='fas fa-tachometer-alt'))
+        ])
+    ])
+    return dbc.Navbar([html.A(navbrand, href='#')],
+                      sticky='top',
+                      color="primary",
+                      dark=True)
 
 
 def dropdown(id, labels, values=None, default_idx=0):

@@ -1,10 +1,36 @@
+import pickle
 import pandas as pd
 import numpy as np
+from cassandra.cluster import Cluster
+from kafka import KafkaConsumer
 
 
-"""
-Mock data generators
-"""
+cluster = None
+session = None
+
+
+def pandas_factory(colnames, rows):
+    return pd.DataFrame(rows, columns=colnames)
+
+
+def connect_to_cassandra(cluster_ips, port):
+    global cluster, session
+    cluster = Cluster(cluster_ips, port)
+    session = cluster.connect()
+    session.row_factory = pandas_factory
+    session.default_fetch_size = None
+
+
+def value_deserializer(v):
+    return pickle.loads(v.decode('ascii'))
+
+
+def create_kafka_consumer(cluster_ips):
+    consumer = KafkaConsumer(
+        'rltest',
+        value_deserializer=value_deserializer,
+        bootstrap_servers=cluster_ips)
+
 
 def visitors(time_window):
     index = pd.date_range(start='1/1/2019', end='30/1/2019')

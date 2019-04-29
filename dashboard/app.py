@@ -7,7 +7,21 @@ from dash.dependencies import Input, Output
 from components import summary, navbar, create_figure, graphic, interval_component
 import sources
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SLATE])
+external_stylesheets = [
+    dbc.themes.SLATE,
+    {
+        'href':
+        'https://use.fontawesome.com/releases/v5.8.1/css/all.css',
+        'rel':
+        'stylesheet',
+        'integrity':
+        'sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf',
+        'crossorigin':
+        'anonymous'
+    }
+]
+
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.title = 'Apache Dashboard'
 
 PLOT_CONFIG = [{
