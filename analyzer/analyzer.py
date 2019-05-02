@@ -65,14 +65,15 @@ def insert_into_db(row, session):
     session.execute(query, row)
 
 
-def connect_to_cassandra(cluster_ips):
+def connect_to_cassandra():
     cluster = Cluster()
     session = cluster.connect('logs_keyspace')
     return session
 
 
 def main(interval, topic):
-    sc = SparkContext("local[*]", "LogAnalyzer")
+    conf = SparkConf().setAppName("Log Analyzer")
+    sc = SparkContext(conf=conf)
     ssc = StreamingContext(sc, interval)
     kafka_stream = KafkaUtils.createDirectStream(
         ssc, [topic], {"bootstrap.servers": 'localhost:9092'})
