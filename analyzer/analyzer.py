@@ -46,7 +46,8 @@ def insert_into_db(row, session):
         INSERT INTO logs (%s)'
         VALUES (%s)
         """ % (columns, values)
-    session.execute(query)
+    print(query)
+    #session.execute(query)
 
 
 def connect_to_cassandra(cluster_ips):
@@ -56,18 +57,13 @@ def connect_to_cassandra(cluster_ips):
 
 
 def main(interval, kafka_broker_list, topic, cassandra_server):
-    #config = SparkConf()
-    # config.setAppName('LogAnalyzer')
-    #sc = SparkContext(config)
     sc = SparkContext("local[*]", "LogAnalyzer")
     ssc = StreamingContext(sc, interval)
-    kafka_stream = ssc.socketTextStream("localhost", 9999)
-    parsed = kafka_stream.map(parse_log_line)
-    """
+    #kafka_stream = ssc.socketTextStream("localhost", 9999)
     kafka_stream = KafkaUtils.createDirectStream(
-        ssc, [topic], {"metadata.broker.list": broker_list})
+        ssc, [topic], {"metadata.broker.list": kafka_broker_list})
     parsed = kafka_stream.map(lambda v: parse_log_line(v[1]))
-    """
+    parsed = kafka_stream.map(parse_log_line)
     parsed.foreachRDD(process)
     ssc.start()
     ssc.awaitTermination()
@@ -78,7 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('interval', type=int, help='In seconds')
     parser.add_argument('topic', type=str, help='Kafka topic')
     parser.add_argument(
-        'cassandra_server', type=str, help='Cassandra server ip:port')
+        'cassandra_server', type=str, help='Cassandra server ip')
     parser.add_argument(
         'kafka_broker_list', type=str, help='Kafka broker list', nargs='+')
     args = vars(parser.parse_args())
