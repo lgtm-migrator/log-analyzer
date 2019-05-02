@@ -9,8 +9,6 @@ from pyspark.streaming.kafka import KafkaUtils
 from pyspark.sql import Row
 from cassandra.cluster import Cluster
 
-'02/May/2019:16:44:57 +0200'
-
 
 APACHE_ACCESS_LOG_PATTERN = r'^(\S+) (\S+) (\S+) \[([\w:/]+\s[+\-]\d{4})\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+)'
 
@@ -30,7 +28,7 @@ def parse_log_line(line):
     match = re.search(APACHE_ACCESS_LOG_PATTERN, line)
     result = None
     if match:
-        date = datetime.strptime(match.group(4), '%d/%m/%Y:%H:%M:%S %z')
+        date = datetime.strptime(match.group(4), '%d/%b/%Y:%H:%M:%S %z')
         date = date.isoformat()
         result = [
             match.group(1),
