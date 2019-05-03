@@ -1,28 +1,16 @@
 import argparse
 import re
-from collections import namedtuple
+import json
 from datetime import datetime
 
 from pyspark import SparkContext, SparkConf
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
-from pyspark.sql import Row
 from cassandra.cluster import Cluster
-
+from kafka import KafkaProducer
 
 APACHE_ACCESS_LOG_PATTERN = r'^(\S+) (\S+) (\S+) \[([\w:/]+\s[+\-]\d{4})\] "(\S+) (\S+) (\S+)" (\d{3}) (\d+)'
 
-"""
-    ip_address=match.group(1),
-    client_identd=match.group(2),
-    user_id=match.group(3),
-    date_time=match.group(4),
-    method=match.group(5),
-    endpoint=match.group(6),
-    protocol=match.group(7),
-    response_code=int(match.group(8)),
-    content_size=int(match.group(9))]
-"""
 
 def parse_log_line(line):
     match = re.search(APACHE_ACCESS_LOG_PATTERN, line)
@@ -31,27 +19,24 @@ def parse_log_line(line):
         date = datetime.strptime(match.group(4), '%d/%b/%Y:%H:%M:%S %z')
         date = date.isoformat()
         result = [
-            match.group(1),
-            match.group(2),
-            match.group(3),
-            date,
-            match.group(5),
-            match.group(6),
-            match.group(7),
-            int(match.group(8)),
-            int(match.group(9))]
+            match.group(1),       # ip_address
+            match.group(2),       # client_identd
+            match.group(3),       # user_id
+            date,                 # date_time
+            match.group(5),       # method
+            match.group(6),       # endpoint
+            match.group(7),       # protocol
+            int(match.group(8)),  # response_code
+            int(match.group(9))   # content_size
+        ]
     return result
 
 
-def send_data(rdd):
-    pass
-
-
-def process(partition):
+def process(partition, kafka_producer):
     session = connect_to_cassandra()
     for row in partition:
         insert_into_db(row, session)
-    # TODO: send data to dashboard
+    kafka_producer.send('dashboard', partition)
 
 
 def insert_into_db(row, session):
@@ -77,9 +62,15 @@ def main(interval, topic):
     ssc = StreamingContext(sc, interval)
     kafka_stream = KafkaUtils.createDirectStream(
         ssc, [topic], {"bootstrap.servers": 'localhost:9092'})
+    kafka_producer = KafkaProducer(
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        bootstrap_servers=['localhost:9092'])
+    kafka_producer = sc.broadcast(kafka_producer)
     parsed = kafka_stream.map(lambda v: parse_log_line(v[1]))
     parsed.pprint()
-    parsed.foreachRDD(lambda rdd: rdd.foreachPartition(process))
+    parsed.foreachRDD(
+        lambda rdd: rdd.foreachPartition(
+            lambda p: process(p, kafka_producer.value)))
     ssc.start()
     ssc.awaitTermination()
 

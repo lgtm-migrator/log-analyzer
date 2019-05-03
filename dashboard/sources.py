@@ -1,4 +1,4 @@
-import pickle
+import json
 import pandas as pd
 import numpy as np
 from cassandra.cluster import Cluster
@@ -22,14 +22,13 @@ def connect_to_cassandra(cluster_ips, port):
 
 
 def value_deserializer(v):
-    return pickle.loads(v.decode('ascii'))
+    return json.dumps(v).encode('utf-8')
 
 
 def create_kafka_consumer(cluster_ips):
     consumer = KafkaConsumer(
-        'rltest',
-        value_deserializer=value_deserializer,
-        bootstrap_servers=cluster_ips)
+        value_deserializer=value_deserializer, bootstrap_servers=cluster_ips)
+    consumer.subscribe(['dashboard'])
 
 
 def visitors(time_window):
