@@ -61,14 +61,15 @@ def build_query(time_window, select_clause, where_clause=None):
     start, end = time_window_to_dates(time_window)
     where_clause = (where_clause + ' and') if where_clause else ''
     query = """SELECT %s FROM logs WHERE %s date_time > '%s' and
-            date_time < '%s' ALLOW FILTERING;""" % (where_clause,
-                                                    select_clause, start, end)
+            date_time < '%s' ALLOW FILTERING;""" % (select_clause,
+                                                    where_clause, start, end)
     return query
 
 
-def cassandra_query(time_window, select):
+def cassandra_query(time_window, select, where=None):
     if not session:
         connect_to_cassandra()
+    query = build_query(time_window, select, where)
     result = session.execute(query)
     result = result._current_rows
     if 'date_time' in result.columns:
@@ -97,13 +98,17 @@ def requested_urls(time_window):
 
 
 def get_country(ip):
-    return GEOIP_DATABASE.city(ip).country.geoname_id
+    try:
+        result = GEOIP_DATABASE.city(ip).country.name
+    except:
+        result = None
+    finally:
+        return result
 
 
 def visitor_countries(time_window):
     df = cassandra_query(time_window, 'ip_address')
-    df['country'] = df['ip_address'].apply(get_country)
-    result = df['country'].value_counts()
+    result = df['ip_address'].apply(get_country).value_counts()
     return result.index, result.values
 
 

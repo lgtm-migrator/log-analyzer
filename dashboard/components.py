@@ -69,17 +69,10 @@ GEO_PLOT = {
     'locationmode': 'country names',
     'colorscale': 'Jet',
     'reversescale': False,
-    'marker': {
-        'line': {
-            'color': 'rgb(180,180,180)',
-            'width': 0.5
-        }
-    },
     'colorbar': {
         'autotick': False,
         'tickprefix': ''
     },
-    'type': 'cloropleth',
     'color': 'rgb(30, 105, 255)',
     'marker': {
         'color': 'rgb(30, 105, 255)',
@@ -92,6 +85,7 @@ GEO_PLOT = {
 
 
 GEO_PLOT_LAYOUT = go.layout.Geo(
+    bgcolor='rgba(0,0,0,0)',
     showframe=False,
     showcoastlines=False,
     projection=go.layout.geo.Projection(type='equirectangular'))
@@ -108,20 +102,22 @@ def create_figure_layout(title, geo=False):
     layout['title']['text'] = title
     if geo:
         layout['geo'] = GEO_PLOT_LAYOUT
+        #layout = GEO_PLOT_LAYOUT
     return layout
 
 
-def create_figure(kind, x, y, label, title, geo=False):
+def create_figure(kind, x, y, label, title):
     trace = deepcopy(TRACES[kind])
-    if geo:
+    if kind == 'geo':
         trace['locations'] = x
         trace['z'] = y
-        trace['colorbar']['title'] = label
+        #trace['colorbar']['title'] = label
+        pass
     else:
         trace['x'] = x
         trace['y'] = y
         trace['name'] = label
-    layout = create_figure_layout(title)
+    layout = create_figure_layout(title, kind == 'geo')
     figure = {'data': [trace], 'layout': layout}
     return figure
 
