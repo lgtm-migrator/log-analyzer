@@ -12,7 +12,7 @@ session = None
 
 
 TIMEDELTAS = {
-    'Hour': relativedelta(minutes=1),
+    'Hour': relativedelta(hours=1),
     'Day': relativedelta(days=1),
     'Month': relativedelta(months=1)
 }
@@ -53,8 +53,8 @@ def time_window_to_dates(time_window):
     return start.isoformat(timespec='seconds'), end.isoformat(timespec='seconds')
 
 
-def group(time_window):
-    pass
+def create_grouper(time_window):
+    return pd.Grouper(key='date_time', freq=GROUP_RULES[time_window])
 
 
 def cassandra_query(time_window, select):
@@ -65,7 +65,10 @@ def cassandra_query(time_window, select):
     if not session:
         connect_to_cassandra()
     result = session.execute(query)
-    return result._current_rows
+    result = result._current_rows
+    result['date_time'] = pd.to_datetime(result['date_time'])
+    grouper = create_grouper(time_window)
+    return result.groupby(grouper)
 
 
 def visitors(time_window):
