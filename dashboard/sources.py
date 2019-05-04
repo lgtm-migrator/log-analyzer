@@ -1,6 +1,8 @@
 import json
 import pandas as pd
 import numpy as np
+from dateutil.relativedelta import relativedelta
+from datetime import datetime
 from cassandra.cluster import Cluster
 from kafka import KafkaConsumer
 
@@ -9,14 +11,28 @@ cluster = None
 session = None
 
 
+TIMEDELTAS = {
+    'Hour': relativedelta(minutes=1),
+    'Day': relativedelta(days=1),
+    'Month': relativedelta(months=1)
+}
+
+
+GROUP_RULES = {
+    'Hour': '1Min',
+    'Day': '1Day',
+    'Month': '1Mon'
+}
+
+
 def pandas_factory(colnames, rows):
     return pd.DataFrame(rows, columns=colnames)
 
 
-def connect_to_cassandra(cluster_ips, port):
+def connect_to_cassandra():
     global cluster, session
-    cluster = Cluster(cluster_ips, port)
-    session = cluster.connect()
+    cluster = Cluster()
+    session = cluster.connect('logs_keyspace')
     session.row_factory = pandas_factory
     session.default_fetch_size = None
 
@@ -31,7 +47,27 @@ def create_kafka_consumer(cluster_ips):
     consumer.subscribe(['dashboard'])
 
 
+def time_window_to_dates(time_window):
+    end = datetime.now()
+    start = end - TIMEDELTAS[time_window]
+    return start.isoformat(), end.isoformat()
+
+
+def group(time_window):
+    pass
+
+
+def cassandra_query(time_window, select):
+    start, end = time_window_to_dates(time_window)
+    query = """SELECT %s FROM logs
+            WHERE date_time > '%s'
+            and date_time < '%s';""" % (select, start, end)
+    return session.execute(query)
+
+
 def visitors(time_window):
+    df = cassandra_query(time_window, 'date_time')
+    print(df)
     index = pd.date_range(start='1/1/2019', end='30/1/2019')
     values = np.random.random_integers(4000, 10000, len(index))
     return index, values

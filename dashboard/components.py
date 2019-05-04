@@ -65,15 +65,10 @@ BAR_PLOT = {
 }
 
 TRACES = {'bar': BAR_PLOT, 'line': LINE_PLOT}
-
 CARD_STYLE = {'font-size': 28}
+COLOR_PALETTE = ["#9b59b6", "#3498db", "#e74c3c", "#2ecc71"]
+TIME_WINDOWS = ['Hour', 'Day', 'Month']
 
-COLOR_PALETTE = [
-    "#9b59b6",
-    "#3498db",
-    "#e74c3c",
-    "#2ecc71"
-]
 
 def create_figure_layout(title):
     layout = deepcopy(DEFAULT_FIGURE_LAYOUT)
@@ -94,10 +89,9 @@ def create_figure(kind, x, y, label, title):
 
 def summary_card(title, value, border_color):
     style = {'border-top': '4px solid ' + border_color}
-    header = dbc.CardHeader([
-        html.I(className='fas fa-chart-bar icon-2x'),
-        " " + title
-    ], style=style)
+    header = dbc.CardHeader(
+        [html.I(className='fas fa-chart-bar icon-2x'), " " + title],
+        style=style)
     body = dbc.CardBody(
         [dbc.CardTitle(str(value), className='text-center', style=CARD_STYLE)])
     return dbc.Card([header, body], color='secondary', inverse=True)
@@ -135,7 +129,7 @@ def dropdown(id, labels, values=None, default_idx=0):
 
 
 def graphic(id, figure):
-    options = dropdown(id + '-dropdown', ['Hourly', 'Daily', 'Monthly'])
+    options = dropdown(id + '-dropdown', TIME_WINDOWS)
     options = html.Div([dbc.Row(dbc.Col(options, width=3), justify='end')])
     graph = dcc.Graph(
         id=id,

@@ -4,7 +4,8 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-from components import summary, navbar, create_figure, graphic, interval_component
+from components import summary, navbar, create_figure
+from components import graphic, interval_component, TIME_WINDOWS
 import sources
 
 external_stylesheets = [
@@ -47,15 +48,16 @@ PLOT_CONFIG = [{
 }]
 
 
-def create_figure_from_config(config, time_window=None):
+def create_figure_from_config(config, time_window):
     x, y = config['source'](time_window)
     fig = create_figure(config['kind'], x, y, config['label'], config['title'])
     return fig
 
 
 def create_graphics():
+    time_window = TIME_WINDOWS[0]
     graphics = [
-        graphic('g' + str(i), create_figure_from_config(config))
+        graphic('g' + str(i), create_figure_from_config(config, time_window))
         for i, config in enumerate(PLOT_CONFIG)
     ]
     return graphics
@@ -82,7 +84,7 @@ def serve_layout():
     body_header = create_summary_layout()
     graphics = create_graphics()
     body_main = create_graphics_layout(graphics)
-    int_component = interval_component(2)
+    int_component = interval_component(60)
     body = dbc.Container(body_header + body_main + [int_component])
     return html.Div([navbar('Dashboard'), body])
 
@@ -102,4 +104,5 @@ for i, conf in enumerate(PLOT_CONFIG):
     app.callback(output, [timer, dropdown])(create_updating_function(conf))
 
 if __name__ == '__main__':
+    sources.connect_to_cassandra()
     app.run_server(debug=True)
