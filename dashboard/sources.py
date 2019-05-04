@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from datetime import datetime
 from cassandra.cluster import Cluster
 from kafka import KafkaConsumer
+import geoip2.database
 
 
 cluster = None
@@ -23,6 +24,9 @@ FRECUENCIES = {
     'Day': '1H',
     'Month': 'D'
 }
+
+
+GEOIP_DATABASE = geoip2.database.Reader('./dashboard/data/cities.mmdb')
 
 
 def pandas_factory(colnames, rows):
@@ -53,17 +57,23 @@ def time_window_to_dates(time_window):
     return start.isoformat(timespec='seconds'), end.isoformat(timespec='seconds')
 
 
-def cassandra_query(time_window, select):
+def build_query(time_window, select_clause, where_clause=None):
     start, end = time_window_to_dates(time_window)
-    query = """SELECT %s FROM logs
-            WHERE date_time > '%s'
-            and date_time < '%s' ALLOW FILTERING;""" % (select, start, end)
+    where_clause = (where_clause + ' and') if where_clause else ''
+    query = """SELECT %s FROM logs WHERE %s date_time > '%s' and
+            date_time < '%s' ALLOW FILTERING;""" % (where_clause,
+                                                    select_clause, start, end)
+    return query
+
+
+def cassandra_query(time_window, select):
     if not session:
         connect_to_cassandra()
     result = session.execute(query)
     result = result._current_rows
-    result['date_time'] = pd.to_datetime(result['date_time'])
-    result.set_index('date_time', inplace=True)
+    if 'date_time' in result.columns:
+        result['date_time'] = pd.to_datetime(result['date_time'])
+        result.set_index('date_time', inplace=True)
     return result
 
 
@@ -74,29 +84,27 @@ def visitors(time_window):
     return result.index, result.iloc[:, 0].values
 
 
-def http_status_codes(time_window):
-    index = [200, 300, 400, 500]
-    values = np.random.random_integers(1, 1000, 4)
-    return index, values
+def http_response_codes(time_window):
+    df = cassandra_query(time_window, 'response_code')
+    result = df['response_code'].value_counts()
+    return result.index, result.values
 
 
 def requested_urls(time_window):
-    index = [
-        '/gatitos.gif', '/index.html', '/mancala/league.html',
-        '/flask-tutorial.pdf', '/pandoc.html', '/webmailest.html',
-        '/flask-tutorial2.pdf', '/pandoc2.html', '/webmailest2.html',
-        '/flask-tutorial3.pdf', '/pandoc3.html', '/webmailest3.html'
-        '/flask-tutorial4.pdf', '/pandoc4.html', '/webmailest5.html',
-        '/flask-tutorial5.pdf', '/pandoc5.html', '/webmailest5.html'
-        '/flask-tutorial6.pdf', '/pandoc6.html', '/webmailest6.html',
-        '/flask-tutorial7.pdf', '/pandoc7.html', '/webmailest7.html'
-    ]
-    values = np.random.random_integers(1, 1000, len(index))
-    return index, values
+    df = cassandra_query(time_window, 'endpoint')
+    result = df['endpoint'].value_counts()
+    return result.index, result.values
 
 
-def requested_files(time_window):
-    pass
+def get_country(ip):
+    return GEOIP_DATABASE.city(ip).country.geoname_id
+
+
+def visitor_countries(time_window):
+    df = cassandra_query(time_window, 'ip_address')
+    df['country'] = df['ip_address'].apply(get_country)
+    result = df['country'].value_counts()
+    return result.index, result.values
 
 
 def get_summary():

@@ -64,24 +64,63 @@ BAR_PLOT = {
     }
 }
 
-TRACES = {'bar': BAR_PLOT, 'line': LINE_PLOT}
+GEO_PLOT = {
+    'type': 'choropleth',
+    'locationmode': 'country names',
+    'colorscale': 'Jet',
+    'reversescale': False,
+    'marker': {
+        'line': {
+            'color': 'rgb(180,180,180)',
+            'width': 0.5
+        }
+    },
+    'colorbar': {
+        'autotick': False,
+        'tickprefix': ''
+    },
+    'type': 'cloropleth',
+    'color': 'rgb(30, 105, 255)',
+    'marker': {
+        'color': 'rgb(30, 105, 255)',
+        'line': {
+            'color': 'rgb(35, 185, 255)',
+            'width': 1.5
+        }
+    }
+}
+
+
+GEO_PLOT_LAYOUT = go.layout.Geo(
+    showframe=False,
+    showcoastlines=False,
+    projection=go.layout.geo.Projection(type='equirectangular'))
+
+
+TRACES = {'bar': BAR_PLOT, 'line': LINE_PLOT, 'geo': GEO_PLOT}
 CARD_STYLE = {'font-size': 28}
 COLOR_PALETTE = ["#9b59b6", "#3498db", "#e74c3c", "#2ecc71"]
 TIME_WINDOWS = ['Hour', 'Day', 'Month']
 
 
-def create_figure_layout(title):
+def create_figure_layout(title, geo=False):
     layout = deepcopy(DEFAULT_FIGURE_LAYOUT)
     layout['title']['text'] = title
+    if geo:
+        layout['geo'] = GEO_PLOT_LAYOUT
     return layout
 
 
-def create_figure(kind, x, y, label, title):
+def create_figure(kind, x, y, label, title, geo=False):
     trace = deepcopy(TRACES[kind])
-    trace['x'] = x
-    trace['y'] = y
-    #trace['text'] = x
-    trace['name'] = label
+    if geo:
+        trace['locations'] = x
+        trace['z'] = y
+        trace['colorbar']['title'] = label
+    else:
+        trace['x'] = x
+        trace['y'] = y
+        trace['name'] = label
     layout = create_figure_layout(title)
     figure = {'data': [trace], 'layout': layout}
     return figure

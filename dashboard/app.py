@@ -26,10 +26,10 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.title = 'Apache Dashboard'
 
 PLOT_CONFIG = [{
-    'title': 'Error codes count',
-    'label': 'Error code',
+    'title': 'HTTP Response codes',
+    'label': 'Response code',
     'kind':  'bar',
-    'source': sources.http_status_codes
+    'source': sources.http_response_codes
 }, {
     'title': 'Requested URLs',
     'label': 'URL',
@@ -41,10 +41,10 @@ PLOT_CONFIG = [{
     'kind':  'line',
     'source': sources.visitors
 }, {
-    'title': 'Visitors',
-    'label': 'Visitors count',
-    'kind':  'line',
-    'source': sources.visitors
+    'title': 'Visitor country',
+    'label': 'Visitor country',
+    'kind':  'geo',
+    'source': sources.visitor_countries
 }]
 
 
