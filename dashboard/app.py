@@ -104,4 +104,4 @@ for i, conf in enumerate(PLOT_CONFIG):
     app.callback(output, [timer, dropdown])(create_updating_function(conf))
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, host='0.0.0.0')

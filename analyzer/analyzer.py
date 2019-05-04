@@ -32,11 +32,13 @@ def parse_log_line(line):
     return result
 
 
-def process(partition, kafka_producer):
+def process(partition):
     session = connect_to_cassandra()
+    producer = connect_to_kafka()
+    partition = list(partition)
     for row in partition:
         insert_into_db(row, session)
-    kafka_producer.send('dashboard', partition)
+    producer.send('dashboard', partition)
 
 
 def insert_into_db(row, session):
@@ -56,21 +58,23 @@ def connect_to_cassandra():
     return session
 
 
+def connect_to_kafka():
+    producer= KafkaProducer(
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        bootstrap_servers=['localhost:9092'])
+    return producer
+
+
 def main(interval, topic):
     conf = SparkConf().setAppName("Log Analyzer")
     sc = SparkContext(conf=conf)
     ssc = StreamingContext(sc, interval)
     kafka_stream = KafkaUtils.createDirectStream(
         ssc, [topic], {"bootstrap.servers": 'localhost:9092'})
-    kafka_producer = KafkaProducer(
-        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-        bootstrap_servers=['localhost:9092'])
-    kafka_producer = sc.broadcast(kafka_producer)
     parsed = kafka_stream.map(lambda v: parse_log_line(v[1]))
     parsed.pprint()
     parsed.foreachRDD(
-        lambda rdd: rdd.foreachPartition(
-            lambda p: process(p, kafka_producer.value)))
+        lambda rdd: rdd.foreachPartition(process))
     ssc.start()
     ssc.awaitTermination()
 

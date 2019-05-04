@@ -18,10 +18,10 @@ TIMEDELTAS = {
 }
 
 
-GROUP_RULES = {
+FRECUENCIES = {
     'Hour': '1Min',
-    'Day': '1Day',
-    'Month': '1Mon'
+    'Day': '1H',
+    'Month': 'D'
 }
 
 
@@ -53,10 +53,6 @@ def time_window_to_dates(time_window):
     return start.isoformat(timespec='seconds'), end.isoformat(timespec='seconds')
 
 
-def create_grouper(time_window):
-    return pd.Grouper(key='date_time', freq=GROUP_RULES[time_window])
-
-
 def cassandra_query(time_window, select):
     start, end = time_window_to_dates(time_window)
     query = """SELECT %s FROM logs
@@ -67,16 +63,15 @@ def cassandra_query(time_window, select):
     result = session.execute(query)
     result = result._current_rows
     result['date_time'] = pd.to_datetime(result['date_time'])
-    grouper = create_grouper(time_window)
-    return result.groupby(grouper)
+    result.set_index('date_time', inplace=True)
+    return result
 
 
 def visitors(time_window):
-    df = cassandra_query(time_window, 'date_time')
-    print(df)
-    index = pd.date_range(start='1/1/2019', end='30/1/2019')
-    values = np.random.random_integers(4000, 10000, len(index))
-    return index, values
+    df = cassandra_query(time_window, 'date_time, endpoint')
+    freq = FRECUENCIES[time_window]
+    result = df.resample(freq).count()
+    return result.index, result.iloc[:, 0].values
 
 
 def http_status_codes(time_window):
