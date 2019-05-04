@@ -50,7 +50,7 @@ def create_kafka_consumer(cluster_ips):
 def time_window_to_dates(time_window):
     end = datetime.now()
     start = end - TIMEDELTAS[time_window]
-    return start.isoformat(), end.isoformat()
+    return start.isoformat(timespec='seconds'), end.isoformat(timespec='seconds')
 
 
 def group(time_window):
@@ -61,8 +61,11 @@ def cassandra_query(time_window, select):
     start, end = time_window_to_dates(time_window)
     query = """SELECT %s FROM logs
             WHERE date_time > '%s'
-            and date_time < '%s';""" % (select, start, end)
-    return session.execute(query)
+            and date_time < '%s' ALLOW FILTERING;""" % (select, start, end)
+    if not session:
+        connect_to_cassandra()
+    result = session.execute(query)
+    return result._current_rows
 
 
 def visitors(time_window):

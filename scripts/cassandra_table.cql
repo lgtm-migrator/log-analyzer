@@ -1,6 +1,8 @@
-CREATE KEYSPACE logs_keyspace WITH replication = {
+CREATE KEYSPACE IF NOT EXISTS logs_keyspace WITH replication = {
 'class': 'SimpleStrategy', 'replication_factor': 2
 };
+
+USE logs_keyspace;
 
 CREATE TABLE logs (
   ip_address text,
@@ -12,5 +14,5 @@ CREATE TABLE logs (
   protocol text,
   response_code int,
   content_size bigint,
-  PRIMARY KEY (ip_address, date_time, method, endpoint, response_code, content_size)
+  PRIMARY KEY ((ip_address, content_size, method, endpoint, response_code), date_time)
 );
