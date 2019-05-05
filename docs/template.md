@@ -203,7 +203,8 @@ hacernos con un buen arsenal:
 
 Para llevar a cabo la instalación, comenzaremos por configurar los servidores
 web (aquí lo explicaremos de manera muy general, cada uno luego podrá consultar
-de manera más específica lo que tenga dudas viendo el repositorio). Para ello
+de manera más específica lo que tenga dudas viendo [el
+repositorio](https://github.com/antoniomdk/log-analyzer/)). Para ello
 pondremos primero a generar los logs de manera automática. Una vez que se están
 generando, debemos instalar Apache Flume (que lamentablemente no está en los
 repositorios, tendremos que descargar el código fuente e instalarlo nosotros
@@ -248,4 +249,7 @@ sobre Dash. Cuando se genera una acción sobre el Dashboard, se
 genera la petición sobre la base de datos para obtener la información que se ha
 pedido. Tiene una parte de tiempo real en la que el panel obtiene los datos
 directamente de Spark que están en cola en Kafka, lo que nos permite ver todo en
-tiempo real en un intervalo de 5 a 10 segundos.
+tiempo real en un intervalo de 5 a 10 segundos. En la Figura 5 podemos ver como
+nos ha quedado nuestro panel.
+
+![Dashboard](img/dashboard.jpg)
