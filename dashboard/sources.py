@@ -10,6 +10,7 @@ import geoip2.database
 
 cluster = None
 session = None
+kafka_consumer = None
 
 
 TIMEDELTAS = {
@@ -20,6 +21,7 @@ TIMEDELTAS = {
 
 
 FRECUENCIES = {
+    'Realtime': 'S',
     'Hour': '1Min',
     'Day': '1H',
     'Month': 'D'
@@ -41,14 +43,11 @@ def connect_to_cassandra():
     session.default_fetch_size = None
 
 
-def value_deserializer(v):
-    return json.dumps(v).encode('utf-8')
-
-
-def create_kafka_consumer(cluster_ips):
-    consumer = KafkaConsumer(
-        value_deserializer=value_deserializer, bootstrap_servers=cluster_ips)
-    consumer.subscribe(['dashboard'])
+def create_kafka_consumer():
+    global kafka_consumer
+    kafka_consumer = KafkaConsumer(
+        value_deserializer=lambda x: json.dumps(x).encode('utf-8'))
+    kafka_consumer.subscribe(['dashboard'])
 
 
 def time_window_to_dates(time_window):
@@ -57,7 +56,7 @@ def time_window_to_dates(time_window):
     return start.isoformat(timespec='seconds'), end.isoformat(timespec='seconds')
 
 
-def build_query(time_window, select_clause, where_clause=None):
+def build_cassandra_query(time_window, select_clause, where_clause=None):
     start, end = time_window_to_dates(time_window)
     where_clause = (where_clause + ' and') if where_clause else ''
     query = """SELECT %s FROM logs WHERE %s date_time > '%s' and
@@ -69,7 +68,7 @@ def build_query(time_window, select_clause, where_clause=None):
 def cassandra_query(time_window, select, where=None):
     if not session:
         connect_to_cassandra()
-    query = build_query(time_window, select, where)
+    query = build_cassandra_query(time_window, select, where)
     result = session.execute(query)
     result = result._current_rows
     if 'date_time' in result.columns:
@@ -78,21 +77,35 @@ def cassandra_query(time_window, select, where=None):
     return result
 
 
+def kafka_query(select, where):
+    if not session:
+        create_kafka_consumer()
+    data = kafka_consumer.poll(timeout_ms=0, max_records=None)
+    print(data)
+
+
+def get_data(time_window, select, where=None):
+    if time_window == 'Realtime':
+        kafka_query(select, where)
+    else:
+        return get_data(time_window, select, where)
+
+
 def visitors(time_window):
-    df = cassandra_query(time_window, 'date_time, endpoint')
+    df = get_data(time_window, 'date_time, endpoint')
     freq = FRECUENCIES[time_window]
     result = df.resample(freq).count()
     return result.index, result.iloc[:, 0].values
 
 
 def http_response_codes(time_window):
-    df = cassandra_query(time_window, 'response_code')
+    df = get_data(time_window, 'response_code')
     result = df['response_code'].value_counts()
     return result.index, result.values
 
 
 def requested_urls(time_window):
-    df = cassandra_query(time_window, 'endpoint')
+    df = get_data(time_window, 'endpoint')
     result = df['endpoint'].value_counts()
     return result.index, result.values
 
@@ -107,13 +120,13 @@ def get_country(ip):
 
 
 def visitor_countries(time_window):
-    df = cassandra_query(time_window, 'ip_address')
+    df = get_data(time_window, 'ip_address')
     result = df['ip_address'].apply(get_country).value_counts()
     return result.index, result.values
 
 
 def get_summary():
-    index = ['Total Requests', 'Log Size', 'Requested Files', 'Not Found']
+    index = ['Total Requests', 'Log Size', 'Not Found', 'Visitors']
     values = np.random.random_integers(10, 10000, len(index))
     values = values.astype(np.object)
     values[1] = str(values[1]) + ' MiB'

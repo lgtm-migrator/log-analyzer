@@ -94,7 +94,7 @@ GEO_PLOT_LAYOUT = go.layout.Geo(
 TRACES = {'bar': BAR_PLOT, 'line': LINE_PLOT, 'geo': GEO_PLOT}
 CARD_STYLE = {'font-size': 28}
 COLOR_PALETTE = ["#9b59b6", "#3498db", "#e74c3c", "#2ecc71"]
-TIME_WINDOWS = ['Hour', 'Day', 'Month']
+TIME_WINDOWS = ['Hour', 'Day', 'Month', 'Realtime']
 
 
 def create_figure_layout(title, geo=False):
@@ -174,8 +174,8 @@ def graphic(id, figure):
     return dbc.Card([dbc.CardHeader(options), dbc.CardBody([graph])])
 
 
-def interval_component(interval_in_secs):
+def interval_component(id, interval_in_secs):
     return dcc.Interval(
-        id='interval-component',
+        id='interval-component-' + str(id),
         interval=interval_in_secs * 1000,
         n_intervals=0)

@@ -72,20 +72,23 @@ def create_summary_layout():
 
 
 def create_graphics_layout(graphics):
-    layout = [
+    return [
         dbc.Row([dbc.Col(g1, md=6), dbc.Col(g2, md=6)],
                 style={'margin-top': '40px'})
         for g1, g2 in zip(graphics[0::2], graphics[1::2])
     ]
-    return layout
+
+
+def create_interval_components(num):
+    return [interval_component(i, 60) for i in range(num)]
 
 
 def serve_layout():
     body_header = create_summary_layout()
     graphics = create_graphics()
     body_main = create_graphics_layout(graphics)
-    int_component = interval_component(60)
-    body = dbc.Container(body_header + body_main + [int_component])
+    int_components = create_interval_components(len(graphics))
+    body = dbc.Container(body_header + body_main + int_components)
     return html.Div([navbar('Dashboard'), body])
 
 
@@ -95,13 +98,19 @@ def create_updating_function(config):
     return update
 
 
+def update_interval_component(time_window):
+    return 5 * 1000 if time_window == 'Realtime' else 60 * 1000
+
+
 app.layout = serve_layout
 
 for i, conf in enumerate(PLOT_CONFIG):
-    output = Output('g' + str(i), 'figure')
-    timer = Input('interval-component', 'n_intervals')
+    graph_output = Output('g' + str(i), 'figure')
+    interval_output = Output('interval_component-' + str(i), 'interval')
+    timer = Input('interval-component' + str(i), 'n_intervals')
     dropdown = Input('g' + str(i) + '-dropdown', 'value')
-    app.callback(output, [timer, dropdown])(create_updating_function(conf))
+    app.callback(graph_output, [timer, dropdown])(create_updating_function(conf))
+    app.callback(interval_output, [dropdown])(create_updating_function(conf))
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
