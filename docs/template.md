@@ -49,9 +49,10 @@ código de error que ha devuelto nuestro servidor (2xx, 3xx, 5xx...), a qué hor
 realizó la petición, el protocolo usado...
 
 Toda esta información no viene dada en un formato estructurado como por ejemplo
-JSON, sino que es una línea de información que siempre muestra los mismo campos
-en el mismo órden y que nosotros deberemos ir extrayendo mediante parsing (Regex
-por ejemplo). A este tipo de datos se les llaman datos semiestructurados.
+JSON, sino que viene en crudo o en formato semiestructurado. En el primer caso
+es más difícil procesar los logs, mientras que en el segundo,
+podemos emplear expresiones regulares para estructurar los datos y prepararlos
+para guardarlos en una base de datos por ejemplo. 
 
 # Importancia
 
@@ -82,23 +83,26 @@ quizás esperaremos demasiado y perderemos el "tiempo real".
 
 # Nuestra solución
 
-Utilizaremos este punto para introducir nuestra solución. En primer lugar,
-dividiremos este problema en varias partes:
+Utilizaremos este punto para introducir nuestra solución. Antes de continuar,
+vamos a explicar las tres etapas que nosotros consideramos fundamentales
+en el flujo de información para el análisis de logs. Estás
+etapas también son comunes a otros desarrollos basados en IoT o 
+donde se requiera analizar un flujo continuo de información.
+Las partes son las siguientes:
 
--   Ingestión.
-La ingestión es el momento en el que cogemos los datos, los logs, y los movemos
-al servidor donde se procesarán. Para esto utilizaremos [Apache
-Flume](https://flume.apache.org/) y [Apache
-Kafka](https://kafka.apache.org/). (No, Apache no patrocina esta memoria)
+- **Ingestión**: La ingestión es el momento en el que cogemos los datos (logs) 
+y los movemos al servidor donde se procesarán.
+Para esto utilizaremos [Apache Flume](https://flume.apache.org/) y 
+[Apache Kafka](https://kafka.apache.org/). (No, Apache no patrocina esta memoria)
 
--   Procesamiento.
+- **Procesamiento:**
 El procesamiento es el momento en el que tomamos los logs en crudo, tal y como
 los produce nuestro servidor web, y obtenemos la información que nos interesa de
 los eventos. Para esto utilizaremos [Apache Spark](https://spark.apache.org/),
 [Apache Cassandra](https://cassandra.apache.org/) y [Apache
 Hadoop](https://hadoop.apache.org/) (HDFS).
 
--   Presentación de la información.
+- **Presentación de la información:**
 El visionado es el momento en el que se muestra la distinta información, ya
 digerida, en un panel para que puedan consultarse. Aquí pueden consultarse
 diferentes relaciones entre los eventos como el número total de visitantes, los
@@ -108,22 +112,35 @@ diferentes códigos de error devueltos... Para esto utilizaremos
 Vamos a comentar un poco por qué hemos usado este software y no otro:
 
 En el caso de Kafka, cuenta con una interfaz genérica con todas las fuentes de
-información. Spark tiene una integración perfecta con Kafka y podemos conectarla
-directamente con HDFS. Además la paralelización es la base de su desarrollo. En
+información. Spark tiene una integración perfecta con Kafka y soporta HDFS como
+sistema de almacenamiento principal HDFS. 
+Además la paralelización es la base de su desarrollo. En
 cuanto a Flume, se conecta bien con Kafka y además permite muchas fuentes
 distintas (más adelante veremos esto).
 
-Todas estas herramientas están pensadas para el BigData, por lo que escala tan
+Todas estas herramientas están pensadas para el Big Data, por lo que escala tan
 bien como una granja web. Además todo es de Apache, por lo que el hecho de que
 se integre bien no es ninguna sorpresa.
 
-No obstante, cabe mencionar que todos las partes son reemplazables. Kafka podría
-reemplazarse por RabbitMQ, Spark por Storm (o tu propia implementación)...
-Aunque tal y como lo hemos hecho todo funciona bien, casi de manera automática.
-Cassandra podríamos sustituirlo por HBase o cualquier base de datos NoSQL.
-El panel también podría cambiarse por implementaciones
-[InfluxDB](https://www.influxdata.com/products/influxdb-overview/), que aunque
-te facilita mucho el desarrollo, hace que pierdas cierta flexibilidad.
+El motivo de la escalabilidad de estos sistemas es porque están diseñados para ejecutarse
+en clusters. Tanto Kafka, como Spark y Cassandra se pueden ejecutar en un cluster
+de manera prácticamente automática. Esto permite que el sistema de análisis de logs
+y la granja web escalen de manera similar.
+
+Aunque estamos siendo específicos en software ha utilizar en cada etapa, cabe
+mencionar que todos los componentes son reemplazables. Nos debemos ajustar a los
+recursos disponibles y a las necesidades de la empresa. Por ejemplo, Apache Spark
+permite un gran cauce a cambio de alta latencia. Para obtener un sistema con baja
+latencia, prácticamente en tiempo real, podríamos usar Apache Storm. Por otra parte,
+Kafka puede ser reemplazado por RabbitMQ o cualquier sistema de mensajería o cola
+de datos. Al igual que Flume y Cassandra. Este último se podría remplazar por HBase
+para muchos otros casos.
+
+Además, si lo que necesitamos es una solución rápida de desarrollar y no nos importa
+perder flexibilidad podemos optar por usar una solución integrada como la siguiente:
+[InfluxDB](https://www.influxdata.com/products/influxdb-overview/),
+que a pesar de perder flexibilidad tiene un buen rendimiento por defecto.
+
 
 ## Arquitectura y diseño
 
@@ -135,52 +152,52 @@ diseño hará lo siguiente:
 
 -   Un agente de Flume (instalado en cada uno de los servidores finales) enviará
     los logs a Kafka.
+
 -   Spark tomará la información que recibe Kafka y la irá almacenando en crudo
     en HDFS. También procesará esta información, estructurándola y almacenándola
     en una base de datos Cassandra.
--   El Dashboard irá tomando la información de Cassandra para presentar
-    diferentes datos que nos interesan.
+
+-   El Dashboard recibe los datos de Cassandra para análisis por lotes y de Kafka
+    para mostrar los datos en tiempo real.
 
 Ahora veremos qué hace exactamente cada programa y como nos permite realizar
 esto.
 
--   Apache Flume. Servicio que nos permite coger, agregar y mover grandes
+-   **Apache Flume:** Servicio que nos permite coger, agregar y mover grandes
     cantidades de logs de manera eficiente. Tiene una arquitectura simple basada
     flujo de datos. En la Figura 2 podemos ver como funciona:
     Un agente toma la información de una fuente (por ejemplo leer un archivo), la
     mueve mediante un canal (por ejemplo la memoria principal) y lo deposita en una
     pila (por ejemplo otro servicio como Kafka).
 
--   Apache Kafka. Plataforma de streaming distribuido. La idea básica es que
+-   **Apache Kafka:** Plataforma de streaming distribuido. La idea básica es que
     tenemos canales, llamados "topics", por donde fluirá la información. Hay dos
     tipos de usuarios, los productores (en nuestro caso los agentes Flume) que
     enviarán la información y los consumidores que serán los que tomarán esa
     información. Además tiene particiones, lo cual da paralelismo tanto a los
     consumidores como a los productores sobre el mismo topic.
 
--   Apache Spark. Framework open-source que permite hacer cómputo en clusters,
-    en nuestro caso para procesar logs de manera rápida y eficiente.
+-   **Apache Spark:** Framework open-source que permite hacer cómputo en clusters,
+    en nuestro caso para procesar logs de manera rápida y eficiente. Utilizamos 
+    este sistema para convertir los logs de un formato semiestructurado
+    (Apache Log Access) a un formato estructurado.
 
--   Apache Cassandra. Sistema de almacenamiento de bases de datos NoSQL. Permite
+-   **Apache Cassandra:** Sistema de almacenamiento de bases de datos NoSQL. Permite
     manejar grandes cantidades de datos de manera eficiente y escalable. Lo
     utilizaremos para almacenar la información ya procesada, para luego ser
     mostrada a nuestra voluntad en el panel.
 
--   Apache Hadoop. Colección de herramientas que facilita el manejo de grandes
+-   **Apache Hadoop:** Colección de herramientas que facilita el manejo de grandes
     cantidades de datos. Nosotros más concretamente proponemos HDFS, que es un
     sistema de ficheros distribuidos basado en Java para almacenar grandes
     cantidades de datos. Esto es esencial en entornos de producción donde es
     necesario almacenar los logs en crudo, sin procesar.
 
--   Dash by Plotly. Framework escrito en Python que nos permite de manera
-    sencilla y elegante desarrollar aplicación web para analisis. Es así como
+-   **Dash by Plotly:** Framework escrito en Python que nos permite de manera
+    sencilla desarrollar aplicación web para el análisis. Es así como
     presentamos los datos una vez han sido procesados.
 
 ## Implementación
-
-Hablar sobre la configuración de los clusters, agentes, y base de datos.
-Hablar del consumo de datos por parte del Dashboard (peticiones a cassandra
-y consumo de Kafka).
 
 Para implementar esta arquitectura y el diseño que mostramos en la Figura 1, lo
 primero que hemos hecho es aprovisionarnos de servidores. Hemos utilizado los
@@ -193,13 +210,16 @@ hacernos con un buen arsenal:
     Flume y [un generador de
     logs](https://github.com/kiritbasu/Fake-Apache-Log-Generator) que simulará gran
     cantidad de tráfico.
+
 -   1 x Servidor para procesar toda la información. Se trata de un servidor más
-    potente (4 nucleos). Es por eso que hemos escogido usar 4 servidores web
+    potente (4 núcleos). Es por eso que hemos escogido usar 4 servidores web
     finales, para aprovechar al máximo el paralelismo. Aquí estará Kafka, Spark,
     Cassandra y el Dashboard. En nuestro ejemplo no instalaremos HDFS por
     motivos de espacio. En un entorno de real cada uno de estos servicios
     correría en servidores diferentes y sería obligatorio, como ya comentamos
-    anteriormente, el uso de HDFS para almacenar los logs en crudo.
+    anteriormente, el uso de HDFS para almacenar los logs en crudo. Esto es así
+    por motivos de seguridad y redundancia de datos. HDFS es un sistema de ficheros
+    distribuido bastante seguro.
 
 Para llevar a cabo la instalación, comenzaremos por configurar los servidores
 web (aquí lo explicaremos de manera muy general, cada uno luego podrá consultar
@@ -239,9 +259,12 @@ paralela. En la Figura 3 podemos ver un ejemplo de como se nos queda la tabla.
 En la Figura 4, podemos ver en tiempo real como Spark va recibiendo y procesando
 los diferentes batches.
 
+
 ![Tabla de la BD Cassandra](img/cassandra.jpg)
 
+
 ![Streaming de Apache Spark](img/spark.png)
+
 
 Llegó el momento de presentar la información. Para ello implementaremos un panel
 sobre Dash. Cuando se genera una acción sobre el Dashboard, se
