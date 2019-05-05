@@ -88,7 +88,7 @@ def get_data(time_window, select, where=None):
     if time_window == 'Realtime':
         kafka_query(select, where)
     else:
-        return get_data(time_window, select, where)
+        return cassandra_query(time_window, select, where)
 
 
 def visitors(time_window):
