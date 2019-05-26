@@ -1,6 +1,7 @@
 import argparse
 import re
 import json
+import pickle
 from datetime import datetime
 
 from pyspark import SparkContext, SparkConf
@@ -38,6 +39,7 @@ def process(partition):
     partition = list(partition)
     for row in partition:
         insert_into_db(row, session)
+    print('Sending to kafka')
     producer.send('dashboard', partition)
 
 
@@ -60,7 +62,7 @@ def connect_to_cassandra():
 
 def connect_to_kafka():
     producer= KafkaProducer(
-        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        value_serializer=lambda v: pickle.dumps(v),
         bootstrap_servers=['localhost:9092'])
     return producer
 

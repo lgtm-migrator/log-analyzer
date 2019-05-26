@@ -14,5 +14,5 @@ CREATE TABLE logs (
   protocol text,
   response_code int,
   content_size bigint,
-  PRIMARY KEY ((ip_address, content_size, method, endpoint, response_code), date_time)
+  PRIMARY KEY (user_id, date_time, ip_address, content_size, method, endpoint, response_code)
 );

@@ -94,7 +94,7 @@ GEO_PLOT_LAYOUT = go.layout.Geo(
 TRACES = {'bar': BAR_PLOT, 'line': LINE_PLOT, 'geo': GEO_PLOT}
 CARD_STYLE = {'font-size': 28}
 COLOR_PALETTE = ["#9b59b6", "#3498db", "#e74c3c", "#2ecc71"]
-TIME_WINDOWS = ['Hour', 'Day', 'Month', 'Realtime']
+TIME_WINDOWS = ['Realtime', 'Hour', 'Day', 'Month']
 
 
 def create_figure_layout(title, geo=False):

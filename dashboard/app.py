@@ -106,11 +106,11 @@ app.layout = serve_layout
 
 for i, conf in enumerate(PLOT_CONFIG):
     graph_output = Output('g' + str(i), 'figure')
-    interval_output = Output('interval_component-' + str(i), 'interval')
-    timer = Input('interval-component' + str(i), 'n_intervals')
+    interval_output = Output('interval-component-' + str(i), 'interval')
+    timer = Input('interval-component-' + str(i), 'n_intervals')
     dropdown = Input('g' + str(i) + '-dropdown', 'value')
     app.callback(graph_output, [timer, dropdown])(create_updating_function(conf))
-    app.callback(interval_output, [dropdown])(create_updating_function(conf))
+    app.callback(interval_output, [dropdown])(update_interval_component)
 
 if __name__ == '__main__':
     app.run_server(debug=True, host='0.0.0.0')
