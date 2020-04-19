@@ -64,5 +64,5 @@ traitlets==4.3.2
 tzlocal==1.5.1
 urllib3==1.24.2
 wcwidth==0.1.7
-Werkzeug==0.15.2
+Werkzeug==0.15.3
 zict==0.1.4
